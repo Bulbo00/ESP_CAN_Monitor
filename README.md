@@ -21,6 +21,7 @@ Das System spannt im Fahrzeug ein eigenes WLAN auf und stellt ein responsives We
 
 * **Mikrokontroller:** DOIT ESP32 DevKit V1 (Elegoo / Espressif)
 * **CAN-Transceiver:** SN65HVD230 (3.3V-kompatibel für die Anbindung an das BMS über CAN-Bus)
+* **RTC-Modul:** DS3231 
 * **Verbindung:** D-Sub-9-Stecker-Interface (Pin 2: CAN_L, Pin 7: CAN_H, CAN_GND)
 
 ---
