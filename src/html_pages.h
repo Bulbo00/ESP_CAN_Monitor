@@ -9,9 +9,9 @@ String getHeader(String title, String currentPath) {
   h += "<meta charset='utf-8'>";
   h += "<meta name='viewport' content='width=device-width, initial-scale=1'>";
   h += "<title>" + title + "</title>";
-  h += "table { width:100%; max-width:700px; margin:0 auto; border-collapse:collapse; font-size:13px; }";
-  h += "th, td { border:1px solid #444; padding:4px 6px; text-align:center; }";
-  h += "th { color:#bb86fc; } td.d { font-family:monospace; }";
+//  h += "table { width:100%; max-width:700px; margin:0 auto; border-collapse:collapse; font-size:13px; }";
+//  h += "th, td { border:1px solid #444; padding:4px 6px; text-align:center; }";
+//  h += "th { color:#bb86fc; } td.d { font-family:monospace; }";
   h += "<style>";
   h += "body { font-family: Arial, sans-serif; background-color: #121212; color: #e0e0e0; margin: 0; padding: 10px; box-sizing: border-box; }";
   h += "h1 { color: #03dac6; text-align: center; margin: 8px 0; font-size: 18px; }";
