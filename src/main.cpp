@@ -77,6 +77,24 @@ void handleSDStop() {
 void handleCan()    { server.send(200, "text/html", buildCanPage()); }
 void handleApiCan() { server.send(200, "application/json", canJson()); }
 
+//Für RTC- wird über Handy gestellt
+void handleApiTime() {
+  server.send(200, "application/json",
+              "{\"t\":\"" + rtcZeitString() + "\",\"valid\":" + String(rtcIsValid() ? 1 : 0) + "}");
+}
+
+void handleSetTime() {
+  const char *k[] = {"y", "mo", "d", "h", "mi", "s"};
+  for (auto key : k) if (!server.hasArg(key)) { server.send(400, "text/plain", "Parameter fehlen"); return; }
+  int y = server.arg("y").toInt(),  mo = server.arg("mo").toInt(), d = server.arg("d").toInt();
+  int h = server.arg("h").toInt(),  mi = server.arg("mi").toInt(),  s = server.arg("s").toInt();
+  if (y < 2025 || y > 2099 || mo < 1 || mo > 12 || d < 1 || d > 31 || h > 23 || mi > 59 || s > 59) {
+    server.send(400, "text/plain", "ungueltige Zeit"); return;
+  }
+  rtcSetDateTime(y, mo, d, h, mi, s);
+  server.send(200, "text/plain", rtcZeitString());
+}
+
 
 
 void setup() {
@@ -111,6 +129,9 @@ void setup() {
   server.on("/can", handleCan);
   server.on("/api/can", handleApiCan);
   if (!canInit(TX_PIN, RX_PIN)) Serial.println("CAN-Init fehlgeschlagen!");
+
+  server.on("/api/time", handleApiTime);
+  server.on("/settime", handleSetTime);
 
 
   startup_sound();

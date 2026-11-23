@@ -1,24 +1,19 @@
 #include "rtc_clock.h"
 #include <Wire.h>
 #include <DS3231.h>
-#include <Preferences.h>
 
 static DS3231 rtc;
-static Preferences prefs;
-
-static void syncRtcOnNewFlash() {
-  String build = String(__DATE__) + " " + String(__TIME__);
-  prefs.begin("rtc", false);
-  if (prefs.getString("build", "") != build) {
-    rtc.setDateTime(__DATE__, __TIME__);
-    prefs.putString("build", build);
-  }
-  prefs.end();
-}
 
 void rtcInit() {
   rtc.begin();
-  syncRtcOnNewFlash();
+}
+
+bool rtcIsValid() {
+  return rtc.getDateTime().year >= 2025;   // nach Stromverlust ohne Batterie startet die DS3231 im Jahr 2000
+}
+
+void rtcSetDateTime(uint16_t y, uint8_t mo, uint8_t d, uint8_t h, uint8_t mi, uint8_t s) {
+  rtc.setDateTime(y, mo, d, h, mi, s);
 }
 
 String rtcZeitString() {

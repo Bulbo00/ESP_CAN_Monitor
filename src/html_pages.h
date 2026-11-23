@@ -135,7 +135,26 @@ String buildSettingsPage(float limit_low, float limit_high) {
   
   html += "<button type='submit'>Speichern</button>";
   html += "</form>";
-  html += "</body></html>";
+  html += R"JS(
+  <div style='max-width:350px;margin:15px auto;background:#1e1e1e;padding:15px;border-radius:6px;text-align:center'>
+    <div style='color:#bb86fc;font-size:13px'>Uhr (RTC)</div>
+    <div id='rt' style='font-size:18px;margin:8px 0'>-</div>
+    <button id='sync' style='width:100%;background:#03dac6;color:#121212;border:none;padding:10px;font-weight:bold;border-radius:6px;font-size:14px'>Zeit vom Handy übernehmen</button>
+  </div>
+  <script>
+  const $=id=>document.getElementById(id);
+  async function show(){
+    try{ const j=await (await fetch('/api/time')).json();
+      $('rt').textContent=j.t+(j.valid?'':'  ⚠ ungültig'); }catch(e){}
+  }
+  $('sync').onclick=async()=>{
+    const n=new Date();
+    const q=`y=${n.getFullYear()}&mo=${n.getMonth()+1}&d=${n.getDate()}&h=${n.getHours()}&mi=${n.getMinutes()}&s=${n.getSeconds()}`;
+    await fetch('/settime?'+q); show();
+  };
+  show(); setInterval(show,1000);
+  </script></body></html>)JS";
+  
   return html;
 }
 
