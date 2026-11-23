@@ -9,6 +9,9 @@ String getHeader(String title, String currentPath) {
   h += "<meta charset='utf-8'>";
   h += "<meta name='viewport' content='width=device-width, initial-scale=1'>";
   h += "<title>" + title + "</title>";
+  h += "table { width:100%; max-width:700px; margin:0 auto; border-collapse:collapse; font-size:13px; }";
+  h += "th, td { border:1px solid #444; padding:4px 6px; text-align:center; }";
+  h += "th { color:#bb86fc; } td.d { font-family:monospace; }";
   h += "<style>";
   h += "body { font-family: Arial, sans-serif; background-color: #121212; color: #e0e0e0; margin: 0; padding: 10px; box-sizing: border-box; }";
   h += "h1 { color: #03dac6; text-align: center; margin: 8px 0; font-size: 18px; }";
@@ -67,92 +70,59 @@ String getHeader(String title, String currentPath) {
   h += "<a href='/' class='nav-btn " + String(currentPath == "/" ? "active" : "") + "'>Dashboard</a>";
   h += "<a href='/drive' class='nav-btn " + String(currentPath == "/drive" ? "active" : "") + "'>Fahransicht</a>";
   h += "<a href='/settings' class='nav-btn " + String(currentPath == "/settings" ? "active" : "") + "'>Schwellwerte</a>";
+  h += "<a href='/can' class='nav-btn " + String(currentPath == "/can" ? "active" : "") + "'>CAN</a>";
   h += "</div>";
   return h;
 }
 
-// DRITTE SEITE: Fahransicht (Groß, übersichtlich, ohne Scrollen)
+
+
+// 1. Hauptseite: Vollständiges Dashboard (196 Zellen)_______________________________________________________________________________________________
 String buildDrivePage(bool sd_recording) {
-  String html = getHeader("BMS Fahransicht", "/drive");
-  html += "<h1>Fahr-Live-Ansicht</h1>";
-  
-  // 1. Haupt-Messwerte als 2x2 großes Grid für maximale Lesbarkeit
-  html += "<div class='drive-cards'>";
-  html += "<div class='drive-card'><h3>SoC</h3><p>84 %</p></div>";
-  html += "<div class='drive-card'><h3>Akt. Strom</h3><p>-35.2 A</p></div>";
-  html += "<div class='drive-card'><h3>Verbrauch</h3><p>1.2 Ah</p></div>";
-  html += "<div class='drive-card'><h3>Ø Temperatur</h3><p>26.5 °C</p></div>";
-  html += "</div>";
+    String html = getHeader("BMS Fahransicht", "/drive");
+    html += "<h1>Fahr-Live-Ansicht</h1>";
+    html += R"HTML(
+  <div class='drive-cards'>
+    <div class='drive-card'><h3>SoC</h3><p id='soc'>-</p></div>
+    <div class='drive-card'><h3>Akt. Strom</h3><p id='i'>-</p></div>
+    <div class='drive-card'><h3>Gesamt</h3><p id='u'>-</p></div>
+    <div class='drive-card'><h3>Ø Temperatur</h3><p id='t'>-</p></div>
+  </div>
+  <div class='section-title'>⚠️ Top 10 Niedrigste Zellspannungen</div>
+  <div class='lowest-grid' id='low'></div>
+  )HTML";
 
-  // 2. Die 10 niedrigsten Spannungswerte (Deutlich vergrößerte Boxen & Zahlen)
-  html += "<div class='section-title'>⚠️ Top 10 Niedrigste Zellspannungen</div>";
-  html += "<div class='lowest-grid'>";
-  
-  int lowestCells[10] = { 12, 45, 89, 3, 112, 150, 77, 134, 5, 180 };
-  float lowestVoltages[10] = { 3.120f, 3.135f, 3.140f, 3.142f, 3.150f, 3.155f, 3.160f, 3.162f, 3.165f, 3.170f };
-
-  for(int i = 0; i < 10; i++) {
-    html += "<div class='low-box'>";
-    html += "<div class='low-id'>Z. " + String(lowestCells[i]) + "</div>";
-    html += "<div class='low-val'>" + String(lowestVoltages[i], 3) + "V</div>";
+    html += "<div style='text-align: center; font-size: 12px; margin-bottom: 6px;'>SD-Status: ";
+    html += sd_recording ? "<span style='color: #2ecc71; font-weight: bold;'>● AUFNAHME LÄUFT</span>"
+                        : "<span style='color: #e74c3c; font-weight: bold;'>Bereit (Gestoppt)</span>";
     html += "</div>";
+    html += "<div class='sd-container'>"
+            "<a href='/sd_start' class='sd-btn btn-start'>▶ SD Start</a>"
+            "<a href='/sd_stop' class='sd-btn btn-stop'>⏹ SD Stopp</a></div>";
+
+    html += R"JS(<script>
+  const $=id=>document.getElementById(id);
+  async function upd(){
+    try{
+      const j=await (await fetch('/api/bms')).json();
+      $('soc').textContent=j.soc.toFixed(1)+' %';
+      $('i').textContent=j.i.toFixed(1)+' A';
+      $('u').textContent=j.u.toFixed(1)+' V';
+      $('t').textContent=j.tavg.toFixed(1)+' °C';
+      const low=j.cells.map((mv,k)=>({n:k+1,mv})).filter(c=>c.mv>0)
+        .sort((a,b)=>a.mv-b.mv).slice(0,10);
+      $('low').innerHTML=low.map(c=>`<div class="low-box"><div class="low-id">Z. ${c.n}</div><div class="low-val">${(c.mv/1000).toFixed(3)}V</div></div>`).join('');
+    }catch(e){}
+    finally{ setTimeout(upd,500); }
   }
-  html += "</div>";
-
-  // 3. Statusanzeige & SD-Karten Steuerungsbuttons unten
-  html += "<div style='text-align: center; font-size: 12px; margin-bottom: 6px;'>SD-Status: ";
-  if(sd_recording) {
-    html += "<span style='color: #2ecc71; font-weight: bold;'>● AUFNAHME LÄUFT</span>";
-  } else {
-    html += "<span style='color: #e74c3c; font-weight: bold;'>Bereit (Gestoppt)</span>";
-  }
-  html += "</div>";
-
-  html += "<div class='sd-container'>";
-  html += "<a href='/sd_start' class='sd-btn btn-start'>▶ SD Start</a>";
-  html += "<a href='/sd_stop' class='sd-btn btn-stop'>⏹ SD Stopp</a>";
-  html += "</div>";
-
-  html += "</body></html>";
-  return html;
+  upd();
+  </script></body></html>)JS";
+    return html;
 }
 
-// 1. Hauptseite: Vollständiges Dashboard (196 Zellen)
-String buildDashboardPage(float limit_low, float limit_high) {
-  String html = getHeader("BMS Live Dashboard", "/");
-  html += "<h1>196s1p LFP-BMS Live Monitor</h1>";
-  
-  html += "<div class='card-container'>";
-  html += "<div class='card' style='width:22%'><h3>Gesamt</h3><p>652.4 V</p></div>";
-  html += "<div class='card' style='width:22%'><h3>Strom</h3><p>+12.5 A</p></div>";
-  html += "<div class='card' style='width:22%'><h3>SoC</h3><p>84 %</p></div>";
-  html += "<div class='card' style='width:22%'><h3>Temp</h3><p>24.5 °C</p></div>";
-  html += "</div>";
 
-  html += "<h2 style='font-size: 14px;'>Zellspannungen (1 - 196)</h2>";
-  html += "<div class='grid-container'>";
-  
-  for (int i = 1; i <= 196; i++) {
-    float dummyVoltage = 3.325f;
-    if (i == 10) dummyVoltage = 2.75f;
-    if (i == 50) dummyVoltage = 3.80f;
 
-    String colorClass = "cell-normal";
-    if (dummyVoltage <= limit_low || dummyVoltage >= limit_high) {
-      colorClass = "cell-alert";
-    }
-
-    html += "<div class='cell-box " + colorClass + "'>";
-    html += "<div class='cell-id'>Z." + String(i) + "</div>";
-    html += "<div class='cell-voltage'>" + String(dummyVoltage, 3) + "V</div>";
-    html += "</div>";
-  }
-  
-  html += "</div></body></html>";
-  return html;
-}
-
-// 2. Einstellungsseite
+// 2. Einstellungsseite_______________________________________________________________________________________________
 String buildSettingsPage(float limit_low, float limit_high) {
   String html = getHeader("BMS Einstellungen", "/settings");
   html += "<h1>Schwellwerte</h1>";
@@ -165,6 +135,69 @@ String buildSettingsPage(float limit_low, float limit_high) {
   
   html += "<button type='submit'>Speichern</button>";
   html += "</form>";
+  html += "</body></html>";
+  return html;
+}
+
+// 3. SEITE: Fahransicht (Groß, übersichtlich, ohne Scrollen)_______________________________________________________________________________________________
+String buildDashboardPage(float limit_low, float limit_high) {
+    String html = getHeader("BMS Live Dashboard", "/");
+    html += "<h1>196s1p LFP-BMS Live Monitor</h1>";
+    html += R"HTML(
+  <div id='st' style='text-align:center;font-size:12px;margin-bottom:6px'>verbinde...</div>
+  <div class='card-container'>
+    <div class='card'><h3>Gesamt</h3><p id='u'>-</p></div>
+    <div class='card'><h3>Strom</h3><p id='i'>-</p></div>
+    <div class='card'><h3>SoC</h3><p id='soc'>-</p></div>
+    <div class='card'><h3>Temp</h3><p id='t'>-</p></div>
+  </div>
+  <h2 style='font-size: 14px;'>Zellspannungen (1 - 196)</h2>
+  <div class='grid-container' id='grid'></div>
+  )HTML";
+
+    html += "<script>const LO=" + String(limit_low, 3) + ",HI=" + String(limit_high, 3) + ";";
+    html += R"JS(
+  const $=id=>document.getElementById(id);
+  const g=$('grid');
+  for(let n=1;n<=196;n++) g.insertAdjacentHTML('beforeend',
+    `<div class="cell-box cell-normal" id="c${n}"><div class="cell-id">Z.${n}</div><div class="cell-voltage">-</div></div>`);
+  async function upd(){
+    try{
+      const j=await (await fetch('/api/bms')).json();
+      $('st').textContent=j.online?'BMS online':'Keine BMS-Daten';
+      $('u').textContent=j.u.toFixed(1)+' V';
+      $('i').textContent=j.i.toFixed(1)+' A';
+      $('soc').textContent=j.soc.toFixed(1)+' %';
+      $('t').textContent=j.tavg.toFixed(1)+' °C';
+      j.cells.forEach((mv,k)=>{
+        const e=$('c'+(k+1)); const v=mv/1000;
+        e.lastChild.textContent=mv?v.toFixed(3)+'V':'-';
+        e.className='cell-box '+((mv&&(v<=LO||v>=HI))?'cell-alert':'cell-normal');
+      });
+    }catch(e){ $('st').textContent='Keine Verbindung'; }
+    finally{ setTimeout(upd,1000); }
+  }
+  upd();
+  </script></body></html>)JS";
+    return html;
+}
+
+
+// 4. Seite mit Can Infos_______________________________________________________________________________________________
+String buildCanPage() {
+  String html = getHeader("CAN Monitor", "/can");
+  html += "<h1>CAN-Monitor</h1>";
+  html += "<div id='info' style='text-align:center;font-size:12px;margin-bottom:8px'>...</div>";
+  html += "<table><thead><tr><th>ID</th><th>DLC</th><th>Daten</th><th>Anzahl</th><th>Alter ms</th></tr></thead><tbody id='rows'></tbody></table>";
+  html += "<script>"
+          "async function upd(){try{"
+          "const j=await (await fetch('/api/can')).json();"
+          "document.getElementById('info').textContent='Frames: '+j.total+' | verpasst: '+j.missed+' | Busfehler: '+j.buserr;"
+          "j.frames.sort((a,b)=>a.id.localeCompare(b.id));"
+          "document.getElementById('rows').innerHTML=j.frames.map(f=>"
+          "'<tr><td>'+f.id+'</td><td>'+f.len+'</td><td class=d>'+f.data+'</td><td>'+f.n+'</td><td>'+f.age+'</td></tr>').join('');"
+          "}catch(e){}finally{setTimeout(upd,500);}}"
+          "upd();</script>";
   html += "</body></html>";
   return html;
 }

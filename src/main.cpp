@@ -5,18 +5,20 @@
 #include <DS3231.h>
 #include <Preferences.h>
 
+#include "can_monitor.h"  
 #include "buzzer.h"
 #include "rtc_clock.h"
 #include "html_pages.h"
+#include "bms_data.h"
 
 // Zugangsdaten für das eigene WLAN-Netz des ESP32
 const char* ssid = "Mein_Autarker_Server";
 const char* password = "12345678";
 
-const int buzzerPin = 4;
+const int buzzerPin = 26;
+#define TX_PIN  GPIO_NUM_5
+#define RX_PIN  GPIO_NUM_4
 
-DS3231 rtc;
-Preferences prefs;
 
 // Statische IP-Konfiguration
 IPAddress local_ip(192, 168, 4, 1);
@@ -54,6 +56,9 @@ void handleSettings() {
   server.send(200, "text/html", page);
 }
 
+// Funktion für Live Werte
+void handleApiBms() { server.send(200, "application/json", bmsJson()); }
+
 // Hilfs-Routen für SD-Karten Steuerung via Buttons
 void handleSDStart() {
   sd_is_recording = true;
@@ -69,22 +74,8 @@ void handleSDStop() {
   server.send(302, "text/plain", ""); // Leitet den Browser sofort zurück zur Fahransicht
 }
 
-
-
-void getTime(){
-  RTCDateTime  dt = rtc.getDateTime();
-  Serial.printf("%4d-%02d-%02d %02d:%02d:%02d\n",
-                dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second);
-}
-void syncRtcOnNewFlash() {
-  String build = String(__DATE__) + " " + String(__TIME__);
-  prefs.begin("rtc", false);
-  if (prefs.getString("build", "") != build) {   // neuer Build geflasht
-    rtc.setDateTime(__DATE__, __TIME__);
-    prefs.putString("build", build);
-  }
-  prefs.end();
-}
+void handleCan()    { server.send(200, "text/html", buildCanPage()); }
+void handleApiCan() { server.send(200, "application/json", canJson()); }
 
 
 
@@ -92,7 +83,7 @@ void setup() {
   Serial.begin(9600);
   Wire.begin();
 
-  buzzerInit(4);
+  buzzerInit(buzzerPin);
   rtcInit();
 
   delay(500);
@@ -115,12 +106,22 @@ void setup() {
   Serial.print("IP-Adresse: ");
   Serial.println(WiFi.softAPIP());
 
+  server.on("/api/bms", handleApiBms);
+
+  server.on("/can", handleCan);
+  server.on("/api/can", handleApiCan);
+  if (!canInit(TX_PIN, RX_PIN)) Serial.println("CAN-Init fehlgeschlagen!");
+
+
   startup_sound();
 }
 
 void loop() {
-  server.handleClient();
   //VoltageLow_sound();
-  getTime();
-  delay(10000);
+  server.handleClient();
+  static uint32_t lastPrint = 0;
+  if (millis() - lastPrint >= 10000) {
+    lastPrint = millis();
+    Serial.println(rtcZeitString());
+  }
 }
